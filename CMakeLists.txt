@@ -26,14 +26,6 @@ if (UNIX AND NOT APPLE)
 endif (UNIX AND NOT APPLE)
 
 pkg_check_modules(TAGLIB REQUIRED taglib>=1.6)
-# pkg_check_modules(GLIB REQUIRED glib-2.0)
-# pkg_check_modules(GOBJECT REQUIRED gobject-2.0)
-pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.0)
-# pkg_check_modules(GSTREAMER_APP REQUIRED gstreamer-app-1.0)
-# pkg_check_modules(GSTREAMER_AUDIO REQUIRED gstreamer-audio-1.0)
-# pkg_check_modules(GSTREAMER_BASE REQUIRED gstreamer-base-1.0)
-# pkg_check_modules(GSTREAMER_TAG REQUIRED gstreamer-tag-1.0)
-
 set(CMAKE_REQUIRED_INCLUDES "${TAGLIB_INCLUDE_DIRS}")
 set(CMAKE_REQUIRED_LIBRARIES "${TAGLIB_LIBRARIES}")
 check_cxx_source_compiles("#include <opusfile.h>
@@ -41,21 +33,8 @@ check_cxx_source_compiles("#include <opusfile.h>
 set(CMAKE_REQUIRED_INCLUDES)
 set(CMAKE_REQUIRED_LIBRARIES)
 
-
-
 # Set up definitions and paths
 include_directories(${TAGLIB_INCLUDE_DIRS})
-include_directories(${GSTREAMER_INCLUDE_DIRS})
-# include_directories(${GSTREAMER_APP_INCLUDE_DIRS})
-# include_directories(${GSTREAMER_AUDIO_INCLUDE_DIRS})
-# include_directories(${GSTREAMER_BASE_INCLUDE_DIRS})
-# include_directories(${GSTREAMER_TAG_INCLUDE_DIRS})
-# include_directories(${GLIB_INCLUDE_DIRS})
-# include_directories(${GLIBCONFIG_INCLUDE_DIRS})
-
 link_directories(${TAGLIB_LIBRARY_DIRS})
-link_directories(${GSTREAMER_LIBRARY_DIRS})
-
-
 
 add_subdirectory(src)
