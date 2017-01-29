@@ -12,6 +12,23 @@
 using namespace std;
 using namespace TagLib;
 
+int rating_to_popm(int popm_rating) {
+  switch(popm_rating) {
+    case 0: return 0;
+    case 10: return 13;
+    case 20: return 1;
+    case 30: return 54;
+    case 40: return 64;
+    case 50: return 118;
+    case 60: return 128;
+    case 70: return 186;
+    case 80: return 196;
+    case 90: return 242;
+    case 100: return 255;
+    default: return 0;
+  }
+}
+
 void write_mp3_tags(std::string file_path, std::map<std::string, std::string> tag_params) {
   MPEG::File f(file_path.c_str());
   PropertyMap tags = f.properties();
@@ -27,7 +44,8 @@ void write_mp3_tags(std::string file_path, std::map<std::string, std::string> ta
 
         if(!fl.isEmpty()) {
           ID3v2::PopularimeterFrame *rating_frame = new ID3v2::PopularimeterFrame(fl.front()->render());
-          rating_frame->setRating(std::stoi(value.toCString(true)));
+          int rating = rating_to_popm(std::stoi(value.toCString(true)));
+          rating_frame->setRating(rating);
 
           id3v2_tag->removeFrames("POPM");
           id3v2_tag->addFrame(rating_frame);

@@ -12,5 +12,5 @@ if(NOT BUILD_SHARED_LIBS)
   add_definitions(-DTAGLIB_STATIC)
 endif()
 
-add_executable(tagreader main.cpp)
-target_link_libraries(tagreader tag)
+add_executable(music-tagger main.cpp)
+target_link_libraries(music-tagger tag)
