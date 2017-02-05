@@ -15,6 +15,7 @@
 
 #include <flacfile.h>
 #include <flacpicture.h>
+#include <xiphcomment.h>
 
 #include "../lib/json.hpp"
 using json = nlohmann::json;
@@ -58,51 +59,6 @@ int popm_to_rating(int popm_rating) {
   }
 }
 
-void read_tags(std::string file_path) {
-  TagLib::FileRef f(file_path.c_str());
-
-  json data;
-
-  if (!f.isNull() && f.audioProperties()) {
-    TagLib::AudioProperties *properties = f.audioProperties();
-
-    data["audio_properties"] = {
-      {"duration", properties->length()},
-      {"bitrate", properties->bitrate()},
-      {"sample_rate", properties->sampleRate()},
-      {"channels", properties->channels()}
-    };
-  }
-
-  if (!f.isNull() && f.tag()) {
-    TagLib::PropertyMap tags = f.file()->properties();
-
-    for (TagLib::PropertyMap::ConstIterator i = tags.begin(); i != tags.end(); ++i) {
-      for (TagLib::StringList::ConstIterator j = i->second.begin(); j != i->second.end(); ++j) {
-        data["tags"][i->first.toCString(true)] = i->second[0].toCString(true);
-      }
-    }
-  }
-
-  // Add special handling of rating field for id3v2 tags
-  std::string extension(file_path.substr(file_path.find_last_of(".") + 1));
-  if (extension == "mp3" || extension == "MP3") {
-    TagLib::MPEG::File *mp3_f =
-      dynamic_cast<TagLib::MPEG::File*>(f.file());
-    
-    if (mp3_f->hasID3v2Tag()) {
-      TagLib::ID3v2::FrameList l = mp3_f->ID3v2Tag()->frameList("POPM");
-
-      if(!l.isEmpty()) {
-        TagLib::ID3v2::PopularimeterFrame rating_frame(l.front()->render());
-        data["tags"]["RATING"] = std::to_string(popm_to_rating(rating_frame.rating()));
-      }
-    }
-  }
-
-  std::cout << data << std::endl;
-}
-
 static const char *PictureTypeStrings[] = {
   "Other",   
   "FileIcon",  
@@ -127,28 +83,13 @@ static const char *PictureTypeStrings[] = {
   "PublisherLogo"
 };
 
-void read_cover_mp3(std::string file_path) {
-  TagLib::MPEG::File file(file_path.c_str());
-
-  if(!file.hasID3v2Tag()) {
-    json error = {
-      {"error", "No tags in file"},
-    };
-    std::cout << error << std::endl;
-    return;
-  }
-
-  TagLib::ID3v2::FrameList list = file.ID3v2Tag()->frameList("APIC");
+json read_cover_id3v2(TagLib::ID3v2::Tag *tag) {
+  TagLib::ID3v2::FrameList list = tag->frameList("APIC");
+  json pictures = json::array();
 
   if(list.isEmpty()) {
-    json error = {
-      {"error", "No picture frames (APIC) in file"},
-    };
-    std::cout << error << std::endl;
-    return;
+    return pictures;
   };
-
-  json data = json::array();
 
   for (TagLib::ID3v2::FrameList::ConstIterator it = list.begin(); it != list.end(); ++it) {
     TagLib::ID3v2::AttachedPictureFrame *frame =
@@ -161,35 +102,28 @@ void read_cover_mp3(std::string file_path) {
       {"picture_b64", frame->picture().toBase64().data() }
     };
 
-    data.push_back(pic);
+    pictures.push_back(pic);
   }
 
-  std::cout << data << std::endl;
+  return pictures;
 }
 
-void read_cover_flac(std::string file_path) {
-  TagLib::FLAC::File file(file_path.c_str());
-  
-  // Handle id3v2 tags
-  if (!file.hasXiphComment()) {
-    json error = {
-      {"error", "No tags in file"},
-    };
-    std::cout << error << std::endl;
-    return;
-  }  
+json read_cover_mp3(TagLib::File* file) {
+  TagLib::MPEG::File *mpeg_file =
+    dynamic_cast<TagLib::MPEG::File*>(file);
 
-  TagLib::List<TagLib::FLAC::Picture*> list = file.pictureList();
+  if(!mpeg_file->hasID3v2Tag()) {
+    return json::array();
+  }
+  return read_cover_id3v2(mpeg_file->ID3v2Tag());
+}
+
+json read_cover_xiph(TagLib::List<TagLib::FLAC::Picture*> list) {
+  json pictures = json::array();
 
   if(list.isEmpty()) {
-    json error = {
-      {"error", "No pictures in file"},
-    };
-    std::cout << error << std::endl;
-    return;
+    return pictures;
   };
-
-  json data = json::array();
 
   TagLib::List<TagLib::FLAC::Picture*>::ConstIterator it;
   for (it = list.begin(); it != list.end(); ++it) {
@@ -203,20 +137,94 @@ void read_cover_flac(std::string file_path) {
       {"picture_b64", picture->data().toBase64().data() }
     };
 
-    data.push_back(pic);
+    pictures.push_back(pic);
+  }
+
+  return pictures;
+}
+
+json read_cover_flac(TagLib::File* file) {
+  TagLib::FLAC::File *flac_file =
+    dynamic_cast<TagLib::FLAC::File*>(file);
+  
+  if (flac_file->hasXiphComment()) {
+    return read_cover_xiph(flac_file->pictureList());
+  } else if (flac_file->hasID3v2Tag()) {
+    return read_cover_id3v2(flac_file->ID3v2Tag());
+  } else {
+    return json::array();
+  }
+}
+
+json read_cover(TagLib::File* file) {
+  std::string file_name(file->name());
+  std::string extension(file_name.substr(file_name.find_last_of(".") + 1));
+
+  if (extension == "mp3") {
+    return read_cover_mp3(file);
+  } else if (extension == "flac")  {
+    return read_cover_flac(file);
+  } else {
+    return json::array();
+  }
+}
+
+json audio_properties(TagLib::File *file) {
+  json audioProperties;
+  
+  TagLib::AudioProperties *properties = file->audioProperties();
+
+  audioProperties = {
+    {"duration", properties->length()},
+    {"bitrate", properties->bitrate()},
+    {"sample_rate", properties->sampleRate()},
+    {"channels", properties->channels()}
+  };
+  return audioProperties;
+}
+
+void read_tags(std::string file_path) {
+  TagLib::FileRef f(file_path.c_str());
+  TagLib::File *file = f.file();
+
+  if (!file->isValid()) {
+    return;
+  }
+
+  json data;
+  data["audio_properties"] = audio_properties(file);
+
+  if (file->isValid() && file->tag()) {
+    TagLib::PropertyMap tags = file->properties();
+
+    for (TagLib::PropertyMap::ConstIterator i = tags.begin(); i != tags.end(); ++i) {
+      for (TagLib::StringList::ConstIterator j = i->second.begin(); j != i->second.end(); ++j) {
+        data["tags"][i->first.toCString(true)] = i->second[0].toCString(true);
+      }
+    }
+  }
+
+  // Add special handling of rating field for id3v2 tags
+  std::string extension(file_path.substr(file_path.find_last_of(".") + 1));
+  if (extension == "mp3" || extension == "MP3") {
+    TagLib::MPEG::File *mp3_f =
+      dynamic_cast<TagLib::MPEG::File*>(f.file());
+    
+    if (mp3_f->hasID3v2Tag()) {
+      TagLib::ID3v2::FrameList l = mp3_f->ID3v2Tag()->frameList("POPM");
+
+      if(!l.isEmpty()) {
+        TagLib::ID3v2::PopularimeterFrame rating_frame(l.front()->render());
+        data["tags"]["RATING"] = std::to_string(popm_to_rating(rating_frame.rating()));
+      }
+    }
+  }
+
+  json cover = read_cover(file);
+
+  if (!cover.is_null() && !cover.empty()) {
+    data["cover"] = cover;
   }
 
   std::cout << data << std::endl;
-}
-
-
-void read_cover(std::string file_path) {
-  std::string extension(file_path.substr(file_path.find_last_of(".") + 1));
-  std::transform(extension.begin(), extension.end(), extension.begin(), ::toupper);
-
-  if (extension == "MP3") {
-    read_cover_mp3(file_path);
-  } else if (extension == "FLAC")  {
-    read_cover_flac(file_path);
-  }
 }

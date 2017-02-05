@@ -1,25 +1,36 @@
 # music-tagger
 
-This is a small command line app that returns the tags (id3 or otherwise) from an audio file.
-It is written in c++ and uses the taglib library, and returns the tags as serialized json on stdout for easy parsing (subject to change).
+This is a small command line app that returns the tags from an music file.
+It is written in c++ and uses the taglib library, and returns the tags as json on stdout for easy parsing.
 
 ## Usage
-Reading
 
 ```
 music-tagger read asd.mp3
-music-tagger read-cover <file>
-```
-
-Updating
-
-```
 music-tagger update <file> TITLE="New title"
+```
+
+## Support
+All of the formats that taglib supports work and it will return the extended tags (ALBUMARTIST, etc). However support for reading the coverart is only available for mp3 and flac at the moment.
+
+The important ones being:
+* mp3
+* flac
+* m4a (No covers)
+* wav (No covers)
+* ogg/opus (No covers)
+
+## Build
+
+```
+mkdir bin
+cd bin
+cmake ..
+make
 ```
 
 ## Todo
 
-* Handle more than mp3/flac
 * Update album cover
 * Sane error handling
 * Clean up

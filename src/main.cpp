@@ -7,9 +7,7 @@
 void print_help() {
   std::cout << "Usage: " << std::endl;
   std::cout << "\t music-tagger read <file>" << std::endl;
-  std::cout << "\t music-tagger read-cover <file>" << std::endl;
   std::cout << "\t music-tagger update <file> TITLE=\"New title\"" << std::endl;
-  std::cout << "\t music-tagger update-cover <file>" << std::endl;
 }
 
 std::map<std::string, std::string> read_params(int argc, char *argv[]) {
@@ -37,12 +35,6 @@ int main(int argc, char *argv[]) {
   } else if (action == "update") {
     write_tags(file_path, read_params(argc, argv));
     read_tags(file_path);
-  } else if (action == "read-cover") {
-    read_cover(file_path);
-  } else if (action == "update-cover") {
-    std::cout << "update-cover" << std::endl;
-  } else if (action == "remove") {
-    std::cout << "remove" << std::endl;
   } else {
     print_help();
   }
