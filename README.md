@@ -23,10 +23,8 @@ The important ones being:
 ## Build
 
 ```
-mkdir bin
 cd bin
-cmake ..
-make
+cmake ..; make
 ```
 
 ## Todo

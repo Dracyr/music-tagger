@@ -91,7 +91,8 @@ json read_cover_id3v2(TagLib::ID3v2::Tag *tag) {
     return pictures;
   };
 
-  for (TagLib::ID3v2::FrameList::ConstIterator it = list.begin(); it != list.end(); ++it) {
+  TagLib::ID3v2::FrameList::ConstIterator it;
+  for (it = list.begin(); it != list.end(); ++it) {
     TagLib::ID3v2::AttachedPictureFrame *frame =
       dynamic_cast<TagLib::ID3v2::AttachedPictureFrame*>(*it);
     
@@ -106,16 +107,6 @@ json read_cover_id3v2(TagLib::ID3v2::Tag *tag) {
   }
 
   return pictures;
-}
-
-json read_cover_mp3(TagLib::File* file) {
-  TagLib::MPEG::File *mpeg_file =
-    dynamic_cast<TagLib::MPEG::File*>(file);
-
-  if(!mpeg_file->hasID3v2Tag()) {
-    return json::array();
-  }
-  return read_cover_id3v2(mpeg_file->ID3v2Tag());
 }
 
 json read_cover_xiph(TagLib::List<TagLib::FLAC::Picture*> list) {
@@ -143,27 +134,29 @@ json read_cover_xiph(TagLib::List<TagLib::FLAC::Picture*> list) {
   return pictures;
 }
 
-json read_cover_flac(TagLib::File* file) {
-  TagLib::FLAC::File *flac_file =
-    dynamic_cast<TagLib::FLAC::File*>(file);
-  
-  if (flac_file->hasXiphComment()) {
-    return read_cover_xiph(flac_file->pictureList());
-  } else if (flac_file->hasID3v2Tag()) {
-    return read_cover_id3v2(flac_file->ID3v2Tag());
-  } else {
-    return json::array();
-  }
-}
-
 json read_cover(TagLib::File* file) {
   std::string file_name(file->name());
   std::string extension(file_name.substr(file_name.find_last_of(".") + 1));
 
   if (extension == "mp3") {
-    return read_cover_mp3(file);
+    TagLib::MPEG::File *mpeg_file =
+      dynamic_cast<TagLib::MPEG::File*>(file);
+
+    if(!mpeg_file->hasID3v2Tag()) {
+      return json::array();
+    }
+    return read_cover_id3v2(mpeg_file->ID3v2Tag());
   } else if (extension == "flac")  {
-    return read_cover_flac(file);
+    TagLib::FLAC::File *flac_file =
+      dynamic_cast<TagLib::FLAC::File*>(file);
+    
+    if (flac_file->hasXiphComment()) {
+      return read_cover_xiph(flac_file->pictureList());
+    } else if (flac_file->hasID3v2Tag()) {
+      return read_cover_id3v2(flac_file->ID3v2Tag());
+    } else {
+      return json::array();
+    }
   } else {
     return json::array();
   }
